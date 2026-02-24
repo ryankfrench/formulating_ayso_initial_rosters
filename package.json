@@ -1,0 +1,23 @@
+{
+  "name": "formulating_ayso_initial_rosters",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@tailwindcss/vite": "^4.2.1",
+    "glpk.js": "^5.0.0",
+    "papaparse": "^5.5.3",
+    "tailwindcss": "^4.2.1",
+    "vue": "^3.5.25",
+    "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^6.0.2",
+    "vite": "^7.3.1"
+  }
+}
