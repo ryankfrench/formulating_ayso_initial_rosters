@@ -39,7 +39,8 @@ async function handleSolve(config) {
   await solve({
     players: players.value,
     numTeams: config.numTeams,
-    balanceAge: config.balanceAge
+    balanceAge: config.balanceAge,
+    timeLimit: config.timeLimit
   })
   if (!solverError.value) {
     step.value = 4

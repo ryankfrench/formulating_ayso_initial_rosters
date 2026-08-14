@@ -11,6 +11,14 @@ const emit = defineEmits(['solve', 'back'])
 
 const numTeams = ref(4)
 const balanceAge = ref(true)
+const timeLimit = ref(30)
+const timeLimitOptions = [
+  { value: 15, label: '15 seconds' },
+  { value: 30, label: '30 seconds' },
+  { value: 60, label: '1 minute' },
+  { value: 120, label: '2 minutes' },
+  { value: 300, label: '5 minutes' }
+]
 
 const playersPerTeam = computed(() => {
   if (numTeams.value < 1) return ''
@@ -29,7 +37,8 @@ function submit() {
   if (teamsError.value) return
   emit('solve', {
     numTeams: numTeams.value,
-    balanceAge: props.hasAge && balanceAge.value
+    balanceAge: props.hasAge && balanceAge.value,
+    timeLimit: timeLimit.value
   })
 }
 </script>
@@ -89,6 +98,20 @@ function submit() {
           <p class="text-sm font-medium text-gray-700">Balance average age</p>
           <p class="text-xs text-gray-500">Also minimizes the spread of total age across teams</p>
         </div>
+      </div>
+
+      <!-- Solver time limit -->
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Solver Time Limit</label>
+        <select
+          v-model.number="timeLimit"
+          class="w-full rounded-lg border-gray-300 border px-3 py-2 text-sm"
+        >
+          <option v-for="opt in timeLimitOptions" :key="opt.value" :value="opt.value">
+            {{ opt.label }}
+          </option>
+        </select>
+        <p class="text-sm text-gray-500 mt-1">Longer limits may improve balance for large rosters</p>
       </div>
     </div>
 
