@@ -4,7 +4,8 @@ import { ref, computed } from 'vue'
 const props = defineProps({
   playerCount: { type: Number, required: true },
   hasAge: { type: Boolean, default: false },
-  hasSiblings: { type: Boolean, default: false }
+  hasSiblings: { type: Boolean, default: false },
+  headCoachCount: { type: Number, default: 0 }
 })
 
 const emit = defineEmits(['solve', 'back'])
@@ -88,6 +89,15 @@ function submit() {
         <div>
           <p class="text-sm font-medium text-gray-700">Keep siblings together</p>
           <p class="text-xs text-gray-500">Players in the same sibling group will be on the same team</p>
+        </div>
+      </div>
+
+      <!-- Head coach constraint info -->
+      <div v-if="headCoachCount > 0" class="flex items-center gap-3 p-3 bg-teal-50 rounded-lg">
+        <input type="checkbox" checked disabled class="h-4 w-4 rounded accent-teal-600" />
+        <div>
+          <p class="text-sm font-medium text-gray-700">Separate head coaches</p>
+          <p class="text-xs text-gray-500">{{ headCoachCount }} head coach{{ headCoachCount > 1 ? 'es' : '' }} will each be placed on a different team</p>
         </div>
       </div>
 

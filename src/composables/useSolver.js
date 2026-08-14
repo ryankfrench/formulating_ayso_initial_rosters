@@ -215,6 +215,41 @@ export function useSolver() {
         }
       }
 
+      // Head coach constraints: every pair of HC players must be on different teams
+      const hcIndices = players.map((p, i) => p.headCoach ? i : -1).filter(i => i >= 0)
+      const hcSet = new Set(hcIndices)
+      if (hcIndices.length > k) {
+        throw new Error(
+          `There are ${hcIndices.length} head coaches but only ${k} teams. ` +
+          `Increase team count or reduce head coach designations.`
+        )
+      }
+      for (const group of siblingGroupList) {
+        const hcInGroup = group.filter(i => hcSet.has(i))
+        if (hcInGroup.length >= 2) {
+          const names = hcInGroup.map(i => players[i].name).join(', ')
+          throw new Error(
+            `Sibling group contains multiple head coaches (${names}). ` +
+            `Siblings must be on the same team, but head coaches must be on separate teams. ` +
+            `Remove the HC designation from all but one sibling in this group.`
+          )
+        }
+      }
+      for (let a = 0; a < hcIndices.length; a++) {
+        for (let b = a + 1; b < hcIndices.length; b++) {
+          for (let j = 0; j < k; j++) {
+            subjectTo.push({
+              name: `hc_${hcIndices[a]}_${hcIndices[b]}_${j}`,
+              vars: [
+                { name: varName(hcIndices[a], j), coef: 1.0 },
+                { name: varName(hcIndices[b], j), coef: 1.0 }
+              ],
+              bnds: { type: glpk.GLP_UP, lb: 0.0, ub: 1.0 }
+            })
+          }
+        }
+      }
+
       // Sibling constraints: all siblings in a group go to the same team
       siblingGroupList.forEach((group, gi) => {
         const refPlayer = group[0]
