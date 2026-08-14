@@ -53,6 +53,32 @@ export function useSolver() {
         }
       }
 
+      // Build birth year groups: map group key -> list of player indices
+      const birthYearGroups = {}
+      players.forEach((p, i) => {
+        if (p.birthYear !== null && p.birthYear !== undefined && String(p.birthYear).trim() !== '') {
+          const key = String(p.birthYear).trim()
+          if (!birthYearGroups[key]) birthYearGroups[key] = []
+          birthYearGroups[key].push(i)
+        }
+      })
+      const birthYearGroupList = Object.entries(birthYearGroups).map(([key, indices]) => ({ key, indices }))
+
+      for (const { key, indices } of birthYearGroupList) {
+        const C_g = Math.ceil(indices.length / k)
+        const bySet = new Set(indices)
+        for (const group of siblingGroupList) {
+          const sameYear = group.filter(i => bySet.has(i))
+          if (sameYear.length > C_g) {
+            throw new Error(
+              `Sibling group has ${sameYear.length} players born in ${key}, ` +
+              `but each team can have at most ${C_g} from that birth year. ` +
+              `Reduce team count or split the sibling group.`
+            )
+          }
+        }
+      }
+
       const varName = (i, j) => `x_${i}_${j}`
 
       const binaries = []
@@ -67,6 +93,14 @@ export function useSolver() {
           binaries.push(`y_${j}`)
         }
       }
+
+      birthYearGroupList.forEach(({ indices }, gi) => {
+        if (indices.length % k > 0) {
+          for (let j = 0; j < k; j++) {
+            binaries.push(`y_by_${gi}_${j}`)
+          }
+        }
+      })
 
       const objectiveVars = []
       for (let j = 0; j < k; j++) {
@@ -131,6 +165,42 @@ export function useSolver() {
           })
         }
       }
+
+      // Birth year count constraints (same ±1 pattern as team size, per group)
+      birthYearGroupList.forEach(({ indices }, gi) => {
+        const n_g = indices.length
+        const F_g = Math.floor(n_g / k)
+        const R_g = n_g % k
+        if (R_g > 0) {
+          for (let j = 0; j < k; j++) {
+            const vars = indices.map(i => ({ name: varName(i, j), coef: 1.0 }))
+            vars.push({ name: `y_by_${gi}_${j}`, coef: -1.0 })
+            subjectTo.push({
+              name: `size_by_${gi}_${j}`,
+              vars,
+              bnds: { type: glpk.GLP_FX, lb: F_g, ub: F_g }
+            })
+          }
+          const yVars = []
+          for (let j = 0; j < k; j++) {
+            yVars.push({ name: `y_by_${gi}_${j}`, coef: 1.0 })
+          }
+          subjectTo.push({
+            name: `num_large_by_${gi}`,
+            vars: yVars,
+            bnds: { type: glpk.GLP_FX, lb: R_g, ub: R_g }
+          })
+        } else {
+          for (let j = 0; j < k; j++) {
+            const vars = indices.map(i => ({ name: varName(i, j), coef: 1.0 }))
+            subjectTo.push({
+              name: `size_by_${gi}_${j}`,
+              vars,
+              bnds: { type: glpk.GLP_FX, lb: F_g, ub: F_g }
+            })
+          }
+        }
+      })
 
       // --- Skill deviation constraints ---
       // Minimize sum of |T_j - target_j| where target_j = mu * (F + y_j).
@@ -321,6 +391,15 @@ export function useSolver() {
           const tAge = team.reduce((s, p) => s + (p.age || 0), 0)
           stats.totalAge = tAge
           stats.avgAge = team.length > 0 ? Math.round((tAge / team.length) * 100) / 100 : 0
+        }
+        if (birthYearGroupList.length > 0) {
+          const birthYearCounts = {}
+          for (const p of team) {
+            if (p.birthYear) {
+              birthYearCounts[p.birthYear] = (birthYearCounts[p.birthYear] || 0) + 1
+            }
+          }
+          stats.birthYearCounts = birthYearCounts
         }
         return stats
       })

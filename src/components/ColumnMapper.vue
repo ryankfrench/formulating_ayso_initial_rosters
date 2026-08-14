@@ -13,6 +13,7 @@ const nameCol = ref('')
 const skillCol = ref('')
 const siblingCol = ref('')
 const ageCol = ref('')
+const birthYearCol = ref('')
 const headCoachCol = ref('')
 
 watch(() => props.columns, (cols) => {
@@ -20,6 +21,7 @@ watch(() => props.columns, (cols) => {
   skillCol.value = ''
   siblingCol.value = ''
   ageCol.value = ''
+  birthYearCol.value = ''
   headCoachCol.value = ''
 
   const lower = cols.map(c => ({ original: c, lower: c.toLowerCase() }))
@@ -28,12 +30,14 @@ watch(() => props.columns, (cols) => {
     c.lower.includes('skill') || c.lower.includes('rating') || c.lower.includes('rank') || c.lower.includes('valuation')
   )
   const sibGuess = lower.find(c => c.lower.includes('sibling') || c.lower.includes('family'))
-  const ageGuess = lower.find(c => c.lower.includes('age') || c.lower.includes('birth'))
+  const birthYearGuess = lower.find(c => c.lower.includes('birth'))
+  const ageGuess = lower.find(c => c.lower.includes('age') && !c.lower.includes('birth'))
   const hcGuess = lower.find(c => c.lower.includes('coach') || c.lower.includes('hc'))
 
   if (nameGuess) nameCol.value = nameGuess.original
   if (skillGuess) skillCol.value = skillGuess.original
   if (sibGuess) siblingCol.value = sibGuess.original
+  if (birthYearGuess) birthYearCol.value = birthYearGuess.original
   if (ageGuess) ageCol.value = ageGuess.original
   if (hcGuess) headCoachCol.value = hcGuess.original
 }, { immediate: true })
@@ -65,6 +69,7 @@ function submit() {
     skillCol: skillCol.value,
     siblingCol: siblingCol.value || null,
     ageCol: ageCol.value || null,
+    birthYearCol: birthYearCol.value || null,
     headCoachCol: headCoachCol.value || null
   })
 }
@@ -125,6 +130,16 @@ function submit() {
       </div>
       <div>
         <label class="block text-sm font-medium text-gray-700 mb-1">
+          Birth Year <span class="text-gray-400">(optional)</span>
+        </label>
+        <select v-model="birthYearCol" class="w-full rounded-lg border-gray-300 border px-3 py-2 text-sm bg-white">
+          <option value="">None</option>
+          <option v-for="col in columns" :key="col" :value="col">{{ col }}</option>
+        </select>
+        <p class="text-xs text-gray-500 mt-1">Grouping codes equalized across teams (±1 per group)</p>
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">
           Head Coach <span class="text-gray-400">(optional)</span>
         </label>
         <select v-model="headCoachCol" class="w-full rounded-lg border-gray-300 border px-3 py-2 text-sm bg-white">
@@ -146,6 +161,7 @@ function submit() {
               <span v-else-if="col === skillCol" class="ml-1 text-xs text-green-600">(Skill)</span>
               <span v-else-if="col === siblingCol" class="ml-1 text-xs text-purple-600">(Sibling)</span>
               <span v-else-if="col === ageCol" class="ml-1 text-xs text-orange-600">(Age)</span>
+              <span v-else-if="col === birthYearCol" class="ml-1 text-xs text-amber-700">(Birth Year)</span>
               <span v-else-if="col === headCoachCol" class="ml-1 text-xs text-teal-600">(HC)</span>
             </th>
           </tr>
