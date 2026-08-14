@@ -13,12 +13,14 @@ const nameCol = ref('')
 const skillCol = ref('')
 const siblingCol = ref('')
 const ageCol = ref('')
+const headCoachCol = ref('')
 
 watch(() => props.columns, (cols) => {
   nameCol.value = ''
   skillCol.value = ''
   siblingCol.value = ''
   ageCol.value = ''
+  headCoachCol.value = ''
 
   const lower = cols.map(c => ({ original: c, lower: c.toLowerCase() }))
   const nameGuess = lower.find(c => c.lower.includes('name') || c.lower.includes('player'))
@@ -27,11 +29,13 @@ watch(() => props.columns, (cols) => {
   )
   const sibGuess = lower.find(c => c.lower.includes('sibling') || c.lower.includes('family'))
   const ageGuess = lower.find(c => c.lower.includes('age') || c.lower.includes('birth'))
+  const hcGuess = lower.find(c => c.lower.includes('coach') || c.lower.includes('hc'))
 
   if (nameGuess) nameCol.value = nameGuess.original
   if (skillGuess) skillCol.value = skillGuess.original
   if (sibGuess) siblingCol.value = sibGuess.original
   if (ageGuess) ageCol.value = ageGuess.original
+  if (hcGuess) headCoachCol.value = hcGuess.original
 }, { immediate: true })
 
 const previewRows = computed(() => props.rows.slice(0, 8))
@@ -60,7 +64,8 @@ function submit() {
     nameCol: nameCol.value,
     skillCol: skillCol.value,
     siblingCol: siblingCol.value || null,
-    ageCol: ageCol.value || null
+    ageCol: ageCol.value || null,
+    headCoachCol: headCoachCol.value || null
   })
 }
 </script>
@@ -118,6 +123,16 @@ function submit() {
           <option v-for="col in columns" :key="col" :value="col">{{ col }}</option>
         </select>
       </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">
+          Head Coach <span class="text-gray-400">(optional)</span>
+        </label>
+        <select v-model="headCoachCol" class="w-full rounded-lg border-gray-300 border px-3 py-2 text-sm bg-white">
+          <option value="">None</option>
+          <option v-for="col in columns" :key="col" :value="col">{{ col }}</option>
+        </select>
+        <p class="text-xs text-gray-500 mt-1">Rows with "HC" will be placed on separate teams</p>
+      </div>
     </div>
 
     <!-- Data preview -->
@@ -131,6 +146,7 @@ function submit() {
               <span v-else-if="col === skillCol" class="ml-1 text-xs text-green-600">(Skill)</span>
               <span v-else-if="col === siblingCol" class="ml-1 text-xs text-purple-600">(Sibling)</span>
               <span v-else-if="col === ageCol" class="ml-1 text-xs text-orange-600">(Age)</span>
+              <span v-else-if="col === headCoachCol" class="ml-1 text-xs text-teal-600">(HC)</span>
             </th>
           </tr>
         </thead>

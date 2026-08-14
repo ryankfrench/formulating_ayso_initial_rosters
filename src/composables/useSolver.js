@@ -14,7 +14,7 @@ export function useSolver() {
   const solverError = ref('')
   const result = ref(null)
 
-  async function solve({ players, numTeams, balanceAge }) {
+  async function solve({ players, numTeams, balanceAge, timeLimit = 30 }) {
     solving.value = true
     solverError.value = ''
     result.value = null
@@ -68,13 +68,14 @@ export function useSolver() {
         }
       }
 
-      const objectiveVars = [
-        { name: 'S_max', coef: 1.0 },
-        { name: 'S_min', coef: -1.0 }
-      ]
+      const objectiveVars = []
+      for (let j = 0; j < k; j++) {
+        objectiveVars.push({ name: `D_skill_${j}`, coef: 1.0 })
+      }
       if (balanceAge) {
-        objectiveVars.push({ name: 'A_max', coef: 0.5 })
-        objectiveVars.push({ name: 'A_min', coef: -0.5 })
+        for (let j = 0; j < k; j++) {
+          objectiveVars.push({ name: `D_age_${j}`, coef: 0.5 })
+        }
       }
 
       const subjectTo = []
@@ -131,95 +132,119 @@ export function useSolver() {
         }
       }
 
-      // --- Skill average constraints ---
-      // We minimize S_max - S_min where S_max/S_min bound team averages.
-      // avg_j = T_j / n_j. Since n_j is either F or C, we use big-M
-      // linearization so the correct divisor activates per team.
+      // --- Skill deviation constraints ---
+      // Minimize sum of |T_j - target_j| where target_j = mu * (F + y_j).
+      // mu (global avg skill) is a known constant, so target_j is linear.
       const totalSkill = players.reduce((s, p) => s + p.skill, 0)
-      const M_skill = totalSkill
+      const muSkill = totalSkill / n
+
+      const bounds = []
+      for (let j = 0; j < k; j++) {
+        bounds.push({ name: `D_skill_${j}`, type: glpk.GLP_LO, lb: 0.0, ub: 0.0 })
+      }
 
       for (let j = 0; j < k; j++) {
-        const skillVars = players.map((p, i) => ({ name: varName(i, j), coef: -p.skill }))
+        const skillVarsPos = players.map((p, i) => ({ name: varName(i, j), coef: p.skill }))
+        const skillVarsNeg = players.map((p, i) => ({ name: varName(i, j), coef: -p.skill }))
 
         if (unevenTeams) {
-          // S_max >= T_j/F when y_j=0:  F*S_max - T_j + M*y_j >= 0
+          // T_j - mu*F - mu*y_j <= D_j
           subjectTo.push({
-            name: `savgmax_f_${j}`,
-            vars: [{ name: 'S_max', coef: F }, ...skillVars, { name: `y_${j}`, coef: M_skill }],
-            bnds: { type: glpk.GLP_LO, lb: 0.0, ub: 0.0 }
+            name: `sdev_pos_${j}`,
+            vars: [...skillVarsPos, { name: `y_${j}`, coef: -muSkill }, { name: `D_skill_${j}`, coef: -1.0 }],
+            bnds: { type: glpk.GLP_UP, lb: 0.0, ub: muSkill * F }
           })
-          // S_max >= T_j/C when y_j=1:  C*S_max - T_j - M*y_j >= -M
+          // mu*F + mu*y_j - T_j <= D_j
           subjectTo.push({
-            name: `savgmax_c_${j}`,
-            vars: [{ name: 'S_max', coef: C }, ...skillVars, { name: `y_${j}`, coef: -M_skill }],
-            bnds: { type: glpk.GLP_LO, lb: -M_skill, ub: 0.0 }
-          })
-          // S_min <= T_j/F when y_j=0:  F*S_min - T_j - M*y_j <= 0
-          subjectTo.push({
-            name: `savgmin_f_${j}`,
-            vars: [{ name: 'S_min', coef: F }, ...skillVars, { name: `y_${j}`, coef: -M_skill }],
-            bnds: { type: glpk.GLP_UP, lb: 0.0, ub: 0.0 }
-          })
-          // S_min <= T_j/C when y_j=1:  C*S_min - T_j + M*y_j <= M
-          subjectTo.push({
-            name: `savgmin_c_${j}`,
-            vars: [{ name: 'S_min', coef: C }, ...skillVars, { name: `y_${j}`, coef: M_skill }],
-            bnds: { type: glpk.GLP_UP, lb: 0.0, ub: M_skill }
+            name: `sdev_neg_${j}`,
+            vars: [...skillVarsNeg, { name: `y_${j}`, coef: muSkill }, { name: `D_skill_${j}`, coef: -1.0 }],
+            bnds: { type: glpk.GLP_UP, lb: 0.0, ub: -(muSkill * F) }
           })
         } else {
-          // All teams size F: F*S_max - T_j >= 0, F*S_min - T_j <= 0
+          // T_j - F*mu <= D_j
           subjectTo.push({
-            name: `savgmax_${j}`,
-            vars: [{ name: 'S_max', coef: F }, ...skillVars],
-            bnds: { type: glpk.GLP_LO, lb: 0.0, ub: 0.0 }
+            name: `sdev_pos_${j}`,
+            vars: [...skillVarsPos, { name: `D_skill_${j}`, coef: -1.0 }],
+            bnds: { type: glpk.GLP_UP, lb: 0.0, ub: muSkill * F }
           })
+          // F*mu - T_j <= D_j
           subjectTo.push({
-            name: `savgmin_${j}`,
-            vars: [{ name: 'S_min', coef: F }, ...skillVars],
-            bnds: { type: glpk.GLP_UP, lb: 0.0, ub: 0.0 }
+            name: `sdev_neg_${j}`,
+            vars: [...skillVarsNeg, { name: `D_skill_${j}`, coef: -1.0 }],
+            bnds: { type: glpk.GLP_UP, lb: 0.0, ub: -(muSkill * F) }
           })
         }
       }
 
-      // --- Age average constraints (optional, same structure as skill) ---
+      // --- Age deviation constraints (optional, same structure as skill) ---
       if (balanceAge) {
         const totalAge = players.reduce((s, p) => s + (p.age || 0), 0)
-        const M_age = totalAge
+        const muAge = totalAge / n
 
         for (let j = 0; j < k; j++) {
-          const ageVars = players.map((p, i) => ({ name: varName(i, j), coef: -(p.age || 0) }))
+          bounds.push({ name: `D_age_${j}`, type: glpk.GLP_LO, lb: 0.0, ub: 0.0 })
+        }
+
+        for (let j = 0; j < k; j++) {
+          const ageVarsPos = players.map((p, i) => ({ name: varName(i, j), coef: (p.age || 0) }))
+          const ageVarsNeg = players.map((p, i) => ({ name: varName(i, j), coef: -(p.age || 0) }))
 
           if (unevenTeams) {
             subjectTo.push({
-              name: `aavgmax_f_${j}`,
-              vars: [{ name: 'A_max', coef: F }, ...ageVars, { name: `y_${j}`, coef: M_age }],
-              bnds: { type: glpk.GLP_LO, lb: 0.0, ub: 0.0 }
+              name: `adev_pos_${j}`,
+              vars: [...ageVarsPos, { name: `y_${j}`, coef: -muAge }, { name: `D_age_${j}`, coef: -1.0 }],
+              bnds: { type: glpk.GLP_UP, lb: 0.0, ub: muAge * F }
             })
             subjectTo.push({
-              name: `aavgmax_c_${j}`,
-              vars: [{ name: 'A_max', coef: C }, ...ageVars, { name: `y_${j}`, coef: -M_age }],
-              bnds: { type: glpk.GLP_LO, lb: -M_age, ub: 0.0 }
-            })
-            subjectTo.push({
-              name: `aavgmin_f_${j}`,
-              vars: [{ name: 'A_min', coef: F }, ...ageVars, { name: `y_${j}`, coef: -M_age }],
-              bnds: { type: glpk.GLP_UP, lb: 0.0, ub: 0.0 }
-            })
-            subjectTo.push({
-              name: `aavgmin_c_${j}`,
-              vars: [{ name: 'A_min', coef: C }, ...ageVars, { name: `y_${j}`, coef: M_age }],
-              bnds: { type: glpk.GLP_UP, lb: 0.0, ub: M_age }
+              name: `adev_neg_${j}`,
+              vars: [...ageVarsNeg, { name: `y_${j}`, coef: muAge }, { name: `D_age_${j}`, coef: -1.0 }],
+              bnds: { type: glpk.GLP_UP, lb: 0.0, ub: -(muAge * F) }
             })
           } else {
             subjectTo.push({
-              name: `aavgmax_${j}`,
-              vars: [{ name: 'A_max', coef: F }, ...ageVars],
-              bnds: { type: glpk.GLP_LO, lb: 0.0, ub: 0.0 }
+              name: `adev_pos_${j}`,
+              vars: [...ageVarsPos, { name: `D_age_${j}`, coef: -1.0 }],
+              bnds: { type: glpk.GLP_UP, lb: 0.0, ub: muAge * F }
             })
             subjectTo.push({
-              name: `aavgmin_${j}`,
-              vars: [{ name: 'A_min', coef: F }, ...ageVars],
-              bnds: { type: glpk.GLP_UP, lb: 0.0, ub: 0.0 }
+              name: `adev_neg_${j}`,
+              vars: [...ageVarsNeg, { name: `D_age_${j}`, coef: -1.0 }],
+              bnds: { type: glpk.GLP_UP, lb: 0.0, ub: -(muAge * F) }
+            })
+          }
+        }
+      }
+
+      // Head coach constraints: every pair of HC players must be on different teams
+      const hcIndices = players.map((p, i) => p.headCoach ? i : -1).filter(i => i >= 0)
+      const hcSet = new Set(hcIndices)
+      if (hcIndices.length > k) {
+        throw new Error(
+          `There are ${hcIndices.length} head coaches but only ${k} teams. ` +
+          `Increase team count or reduce head coach designations.`
+        )
+      }
+      for (const group of siblingGroupList) {
+        const hcInGroup = group.filter(i => hcSet.has(i))
+        if (hcInGroup.length >= 2) {
+          const names = hcInGroup.map(i => players[i].name).join(', ')
+          throw new Error(
+            `Sibling group contains multiple head coaches (${names}). ` +
+            `Siblings must be on the same team, but head coaches must be on separate teams. ` +
+            `Remove the HC designation from all but one sibling in this group.`
+          )
+        }
+      }
+      for (let a = 0; a < hcIndices.length; a++) {
+        for (let b = a + 1; b < hcIndices.length; b++) {
+          for (let j = 0; j < k; j++) {
+            subjectTo.push({
+              name: `hc_${hcIndices[a]}_${hcIndices[b]}_${j}`,
+              vars: [
+                { name: varName(hcIndices[a], j), coef: 1.0 },
+                { name: varName(hcIndices[b], j), coef: 1.0 }
+              ],
+              bnds: { type: glpk.GLP_UP, lb: 0.0, ub: 1.0 }
             })
           }
         }
@@ -251,12 +276,13 @@ export function useSolver() {
           vars: objectiveVars
         },
         subjectTo,
+        bounds,
         binaries
       }
 
       const options = {
         msglev: glpk.GLP_MSG_OFF,
-        tmlim: 30
+        tmlim: timeLimit
       }
 
       const sol = await glpk.solve(lp, options)

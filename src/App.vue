@@ -19,7 +19,10 @@ const players = computed(() => {
     name: row[mapping.value.nameCol] ?? '',
     skill: Number(row[mapping.value.skillCol]) || 0,
     siblingGroup: mapping.value.siblingCol ? row[mapping.value.siblingCol] : null,
-    age: mapping.value.ageCol ? Number(row[mapping.value.ageCol]) || 0 : null
+    age: mapping.value.ageCol ? Number(row[mapping.value.ageCol]) || 0 : null,
+    headCoach: mapping.value.headCoachCol
+      ? String(row[mapping.value.headCoachCol] ?? '').trim().toUpperCase() === 'HC'
+      : false
   }))
 })
 
@@ -39,7 +42,8 @@ async function handleSolve(config) {
   await solve({
     players: players.value,
     numTeams: config.numTeams,
-    balanceAge: config.balanceAge
+    balanceAge: config.balanceAge,
+    timeLimit: config.timeLimit
   })
   if (!solverError.value) {
     step.value = 4
@@ -142,6 +146,7 @@ const stepLabels = ['Upload', 'Map Columns', 'Configure', 'Results']
           :player-count="players.length"
           :has-age="!!mapping?.ageCol"
           :has-siblings="!!mapping?.siblingCol"
+          :head-coach-count="players.filter(p => p.headCoach).length"
           @solve="handleSolve"
           @back="goBack(2)"
         />
