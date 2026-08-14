@@ -8,7 +8,26 @@ const props = defineProps({
 
 defineEmits(['back', 'restart'])
 
-const teams = computed(() => props.result.teams)
+function comparePlayers(a, b) {
+  const yearA = a.birthYear
+  const yearB = b.birthYear
+  if (yearA && yearB) {
+    const yearCmp = String(yearA).localeCompare(String(yearB), undefined, { numeric: true })
+    if (yearCmp !== 0) return yearCmp
+  } else if (yearA) {
+    return -1
+  } else if (yearB) {
+    return 1
+  }
+  return (b.skill ?? 0) - (a.skill ?? 0)
+}
+
+const teams = computed(() =>
+  props.result.teams.map(team => ({
+    ...team,
+    players: [...team.players].sort(comparePlayers)
+  }))
+)
 const showAge = computed(() => props.result.balanceAge)
 const hasSiblings = computed(() => teams.value.some(t => t.players.some(p => p.siblingGroup)))
 const hasBirthYear = computed(() => teams.value.some(t => t.players.some(p => p.birthYear)))
