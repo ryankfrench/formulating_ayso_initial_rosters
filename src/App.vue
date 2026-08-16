@@ -20,6 +20,9 @@ const players = computed(() => {
     skill: Number(row[mapping.value.skillCol]) || 0,
     siblingGroup: mapping.value.siblingCol ? row[mapping.value.siblingCol] : null,
     age: mapping.value.ageCol ? Number(row[mapping.value.ageCol]) || 0 : null,
+    birthYear: mapping.value.birthYearCol
+      ? (String(row[mapping.value.birthYearCol] ?? '').trim() || null)
+      : null,
     headCoach: mapping.value.headCoachCol
       ? String(row[mapping.value.headCoachCol] ?? '').trim().toUpperCase() === 'HC'
       : false
@@ -145,6 +148,7 @@ const stepLabels = ['Upload', 'Map Columns', 'Configure', 'Results']
           v-else-if="step === 3"
           :player-count="players.length"
           :has-age="!!mapping?.ageCol"
+          :has-birth-year="!!mapping?.birthYearCol"
           :has-siblings="!!mapping?.siblingCol"
           :head-coach-count="players.filter(p => p.headCoach).length"
           @solve="handleSolve"

@@ -4,6 +4,7 @@ import { ref, computed } from 'vue'
 const props = defineProps({
   playerCount: { type: Number, required: true },
   hasAge: { type: Boolean, default: false },
+  hasBirthYear: { type: Boolean, default: false },
   hasSiblings: { type: Boolean, default: false },
   headCoachCount: { type: Number, default: 0 }
 })
@@ -80,6 +81,15 @@ function submit() {
         <div>
           <p class="text-sm font-medium text-gray-700">Balance skill ratings</p>
           <p class="text-xs text-gray-500">Minimizes the spread of total skill across teams</p>
+        </div>
+      </div>
+
+      <!-- Balance birth years (always on when mapped) -->
+      <div v-if="hasBirthYear" class="flex items-center gap-3 p-3 bg-amber-50 rounded-lg">
+        <input type="checkbox" checked disabled class="h-4 w-4 rounded accent-amber-600" />
+        <div>
+          <p class="text-sm font-medium text-gray-700">Balance birth years</p>
+          <p class="text-xs text-gray-500">Each birth-year group will differ by at most 1 player per team</p>
         </div>
       </div>
 

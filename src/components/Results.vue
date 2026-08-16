@@ -8,9 +8,35 @@ const props = defineProps({
 
 defineEmits(['back', 'restart'])
 
-const teams = computed(() => props.result.teams)
+function comparePlayers(a, b) {
+  const yearA = a.birthYear
+  const yearB = b.birthYear
+  if (yearA && yearB) {
+    const yearCmp = String(yearA).localeCompare(String(yearB), undefined, { numeric: true })
+    if (yearCmp !== 0) return yearCmp
+  } else if (yearA) {
+    return -1
+  } else if (yearB) {
+    return 1
+  }
+  return (b.skill ?? 0) - (a.skill ?? 0)
+}
+
+const teams = computed(() =>
+  props.result.teams.map(team => ({
+    ...team,
+    players: [...team.players].sort(comparePlayers)
+  }))
+)
 const showAge = computed(() => props.result.balanceAge)
 const hasSiblings = computed(() => teams.value.some(t => t.players.some(p => p.siblingGroup)))
+const hasBirthYear = computed(() => teams.value.some(t => t.players.some(p => p.birthYear)))
+
+function birthYearSummary(team) {
+  const counts = team.birthYearCounts
+  if (!counts || Object.keys(counts).length === 0) return ''
+  return Object.keys(counts).sort().map(key => `${key}: ${counts[key]}`).join(' · ')
+}
 
 const teamNames = ref([])
 
@@ -119,6 +145,9 @@ const teamColors = [
             <span>Total Skill: {{ team.totalSkill }}</span>
             <span v-if="showAge">Avg Age: <strong>{{ team.avgAge }}</strong></span>
           </div>
+          <p v-if="hasBirthYear && birthYearSummary(team)" class="mt-1 text-xs text-gray-600">
+            Birth years: {{ birthYearSummary(team) }}
+          </p>
         </div>
 
         <!-- Player table -->
@@ -128,6 +157,7 @@ const teamColors = [
               <th class="text-left px-4 py-1.5 font-medium">Name</th>
               <th class="text-right px-4 py-1.5 font-medium">Skill</th>
               <th v-if="showAge" class="text-right px-4 py-1.5 font-medium">Age</th>
+              <th v-if="hasBirthYear" class="text-right px-4 py-1.5 font-medium">Birth Year</th>
               <th v-if="hasSiblings" class="text-right px-4 py-1.5 font-medium">Siblings</th>
             </tr>
           </thead>
@@ -140,6 +170,7 @@ const teamColors = [
               <td class="px-4 py-2 text-gray-800">{{ player.name }}</td>
               <td class="px-4 py-2 text-right text-gray-600 tabular-nums">{{ player.skill }}</td>
               <td v-if="showAge" class="px-4 py-2 text-right text-gray-600 tabular-nums">{{ player.age }}</td>
+              <td v-if="hasBirthYear" class="px-4 py-2 text-right text-gray-600">{{ player.birthYear ?? '' }}</td>
               <td v-if="hasSiblings" class="px-4 py-2 text-right">
                 <span
                   v-if="player.siblingGroup"
